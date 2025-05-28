@@ -1,3 +1,5 @@
+### THIS IS MY FIRST PUBLISHED APP! 
+
 # Emotional Registry - User Guide
 
 ## Overview
