@@ -13,7 +13,7 @@
       --accent-color: #4a90e2;
       --card-bg: #f9f9f9;
     }
-    
+
     .dark-mode {
       --bg-color: #222222;
       --text-color: #f5f5f5;
@@ -22,7 +22,7 @@
       --accent-color: #5a9aea;
       --card-bg: #2d2d2d;
     }
-    
+
     body {
       background-color: var(--bg-color);
       color: var(--text-color);
@@ -31,43 +31,43 @@
       margin: 0;
       padding: 20px;
     }
-    
+
     .container {
       max-width: 800px;
       margin: 0 auto;
     }
-    
+
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 30px;
     }
-    
+
     h1 {
       color: var(--accent-color);
       margin: 0;
     }
-    
+
     .controls {
       display: flex;
       gap: 10px;
       align-items: center;
     }
-    
+
     .switch {
       position: relative;
       display: inline-block;
       width: 60px;
       height: 30px;
     }
-    
+
     .switch input {
       opacity: 0;
       width: 0;
       height: 0;
     }
-    
+
     .slider {
       position: absolute;
       cursor: pointer;
@@ -82,7 +82,7 @@
       justify-content: space-between;
       padding: 0 5px;
     }
-    
+
     .slider:before {
       position: absolute;
       content: "";
@@ -94,28 +94,28 @@
       transition: .4s;
       z-index: 2;
     }
-    
+
     input:checked + .slider {
       background-color: var(--accent-color);
     }
-    
+
     input:checked + .slider:before {
       transform: translateX(30px);
     }
-    
+
     .slider.round {
       border-radius: 34px;
     }
-    
+
     .slider.round:before {
       border-radius: 50%;
     }
-    
+
     .icon {
       font-size: 14px;
       z-index: 1;
     }
-    
+
     .event-card {
       background-color: var(--card-bg);
       border-radius: 8px;
@@ -123,30 +123,30 @@
       margin-bottom: 20px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    
+
     .event-title {
       display: flex;
       justify-content: space-between;
       margin-bottom: 15px;
     }
-    
+
     .event-title h3 {
       margin: 0;
       color: var(--accent-color);
     }
-    
+
     .event-date {
       color: var(--text-color);
       opacity: 0.7;
     }
-    
+
     .emotions-list {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
       margin-bottom: 15px;
     }
-    
+
     .emotion-tag {
       background-color: var(--accent-color);
       color: white;
@@ -154,17 +154,17 @@
       border-radius: 12px;
       font-size: 12px;
     }
-    
+
     .section-label {
       font-weight: bold;
       margin-bottom: 5px;
       color: var(--accent-color);
     }
-    
+
     .event-triggers, .event-details, .event-thoughts, .event-physical, .event-coping {
       margin-bottom: 15px;
     }
-    
+
     .intensity-meter {
       background-color: var(--accent-color);
       color: white;
@@ -174,14 +174,14 @@
       font-size: 14px;
       margin-bottom: 15px;
     }
-    
+
     .actions {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
       margin-top: 20px;
     }
-    
+
     button {
       background-color: var(--accent-color);
       color: white;
@@ -192,26 +192,26 @@
       font-weight: 500;
       transition: all 0.2s ease;
     }
-    
+
     button:hover {
       opacity: 0.9;
     }
-    
+
     .danger-btn {
       background-color: #e74c3c;
     }
-    
+
     .danger-btn:hover {
       background-color: #c0392b;
     }
-    
+
     .no-events {
       text-align: center;
       padding: 40px 0;
       color: var(--text-color);
       opacity: 0.7;
     }
-    
+
     /* Editing mode styles */
     .edit-mode .editable {
       border: 1px dashed var(--accent-color);
@@ -219,13 +219,13 @@
       border-radius: 4px;
       background-color: rgba(74, 144, 226, 0.05);
     }
-    
+
     .edit-mode .editable:focus {
       outline: none;
       border: 1px solid var(--accent-color);
       background-color: var(--input-bg);
     }
-    
+
     .edit-mode .edit-title {
       font-size: 18px;
       font-weight: bold;
@@ -236,7 +236,7 @@
       padding: 5px;
       margin-bottom: 5px;
     }
-    
+
     .edit-mode .edit-date {
       padding: 5px;
       border: 1px dashed var(--accent-color);
@@ -244,7 +244,7 @@
       color: var(--text-color);
       border-radius: 4px;
     }
-    
+
     .edit-mode .edit-intensity {
       width: 60px;
       text-align: center;
@@ -254,7 +254,7 @@
       color: var(--text-color);
       border-radius: 4px;
     }
-    
+
     .edit-mode .edit-emotions {
       width: 100%;
       padding: 5px;
@@ -264,11 +264,11 @@
       border-radius: 4px;
       margin-bottom: 10px;
     }
-    
+
     .edit-mode .edit-btn {
       background-color: #2ecc71;
     }
-    
+
     .edit-mode .cancel-btn {
       background-color: #95a5a6;
     }
@@ -290,7 +290,7 @@
         </label>
       </div>
     </div>
-    
+
     <div id="events-container">
       <!-- Events will be populated here -->
       <div class="no-events" id="no-events-message">
@@ -304,10 +304,10 @@
     function loadEvents() {
       const eventsContainer = document.getElementById('events-container');
       eventsContainer.innerHTML = '';
-      
+
       // Get events from localStorage
       const events = JSON.parse(localStorage.getItem('therapyEvents') || '[]');
-      
+
       // Show no events message if needed
       if (events.length === 0) {
         const noEventsDiv = document.createElement('div');
@@ -316,16 +316,16 @@
         eventsContainer.appendChild(noEventsDiv);
         return;
       }
-      
+
       // Sort events by date (newest first)
       events.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate));
-      
+
       // Create event cards
       events.forEach(event => {
         const card = document.createElement('div');
         card.className = 'event-card';
         card.dataset.id = event.id;
-        
+
         // Map emotions to include emojis
         const emotionMap = {
           'anger': '😠 Anger',
@@ -349,14 +349,14 @@
           'jealous': '😒 Jealous',
           'content': '😌 Content'
         };
-        
+
         // Create emotions HTML if emotions exist
-        const emotionsHtml = event.emotions && event.emotions.length 
+        const emotionsHtml = event.emotions && event.emotions.length
           ? `<div class="emotions-list">
               ${event.emotions.map(e => `<span class="emotion-tag">${emotionMap[e] || e}</span>`).join('')}
              </div>`
           : '';
-        
+
         card.innerHTML = `
           <div class="event-title">
             <h3>${event.eventTitle}</h3>
@@ -393,37 +393,37 @@
             <button class="delete-btn" data-id="${event.id}">Delete</button>
           </div>
         `;
-        
+
         eventsContainer.appendChild(card);
-        
+
         // Add event listeners to buttons
         const editBtn = card.querySelector('.edit-btn');
         editBtn.addEventListener('click', function() {
           toggleEditMode(event.id);
         });
-        
+
         const deleteBtn = card.querySelector('.delete-btn');
         deleteBtn.addEventListener('click', function() {
           deleteEvent(event.id);
         });
       });
     }
-    
+
     // Toggle edit mode for a card
     function toggleEditMode(id) {
       const events = JSON.parse(localStorage.getItem('therapyEvents') || '[]');
       const event = events.find(e => e.id == id);
       if (!event) return;
-      
+
       const card = document.querySelector(`.event-card[data-id="${id}"]`);
       if (!card) return;
-      
+
       // If already in edit mode, return
       if (card.classList.contains('edit-mode')) return;
-      
+
       // Add edit mode class
       card.classList.add('edit-mode');
-      
+
       // Map emotions for select options
       const emotionOptions = {
         'anger': '😠 Anger',
@@ -447,13 +447,13 @@
         'jealous': '😒 Jealous',
         'content': '😌 Content'
       };
-      
+
       // Create emotions select options
       const emotionsOptions = Object.keys(emotionOptions).map(key => {
         const selected = event.emotions && event.emotions.includes(key) ? 'selected' : '';
         return `<option value="${key}" ${selected}>${emotionOptions[key]}</option>`;
       }).join('');
-      
+
       // Replace card content with editable fields
       card.innerHTML = `
         <div class="event-title">
@@ -462,68 +462,68 @@
           <input type="time" class="edit-time" value="${event.eventTime || ''}">
           <input type="number" class="edit-duration" min="1" value="${event.eventDuration || ''}" placeholder="Minutes">
         </div>
-        
+
         <select class="edit-emotions" multiple>
           ${emotionsOptions}
         </select>
-        
+
         <div class="intensity-container">
           <div class="section-label">Intensity (1-10):</div>
           <input type="number" class="edit-intensity" min="1" max="10" value="${event.intensity || 5}">
         </div>
-        
+
         <div class="event-triggers">
           <div class="section-label">Triggers:</div>
           <div contenteditable="true" class="editable triggers-edit">${event.triggers || ''}</div>
         </div>
-        
+
         <div class="event-details">
           <div class="section-label">What happened:</div>
           <div contenteditable="true" class="editable details-edit">${event.eventDetails || ''}</div>
         </div>
-        
+
         <div class="event-thoughts">
           <div class="section-label">Thoughts:</div>
           <div contenteditable="true" class="editable thoughts-edit">${event.thoughts || ''}</div>
         </div>
-        
+
         <div class="event-physical">
           <div class="section-label">Physical sensations:</div>
           <div contenteditable="true" class="editable physical-edit">${event.physicalSensations || ''}</div>
         </div>
-        
+
         <div class="event-coping">
           <div class="section-label">Coping strategies used:</div>
           <div contenteditable="true" class="editable coping-edit">${event.coping || ''}</div>
         </div>
-        
+
         <div class="actions">
           <button class="save-btn" data-id="${id}">Save</button>
           <button class="cancel-btn" data-id="${id}">Cancel</button>
         </div>
       `;
-      
+
       // Add event listeners to new buttons
       const saveBtn = card.querySelector('.save-btn');
       saveBtn.addEventListener('click', function() {
         saveEditedEvent(id);
       });
-      
+
       const cancelBtn = card.querySelector('.cancel-btn');
       cancelBtn.addEventListener('click', function() {
         cancelEdit();
       });
     }
-    
+
     // Save edited event
     function saveEditedEvent(id) {
       const card = document.querySelector(`.event-card[data-id="${id}"]`);
       if (!card) return;
-      
+
       const events = JSON.parse(localStorage.getItem('therapyEvents') || '[]');
       const eventIndex = events.findIndex(e => e.id == id);
       if (eventIndex === -1) return;
-      
+
       // Get values from form
       const title = card.querySelector('.edit-title').value;
       const date = card.querySelector('.edit-date').value;
@@ -535,11 +535,11 @@
       const thoughts = card.querySelector('.thoughts-edit').innerText;
       const physical = card.querySelector('.physical-edit').innerText;
       const coping = card.querySelector('.coping-edit').innerText;
-      
+
       // Get selected emotions
       const emotionsSelect = card.querySelector('.edit-emotions');
       const selectedEmotions = Array.from(emotionsSelect.selectedOptions).map(option => option.value);
-      
+
       // Update event
       events[eventIndex] = {
         ...events[eventIndex],
@@ -555,19 +555,19 @@
         coping: coping,
         emotions: selectedEmotions
       };
-      
+
       // Save to localStorage
       localStorage.setItem('therapyEvents', JSON.stringify(events));
-      
+
       // Reload events
       loadEvents();
     }
-    
+
     // Cancel edit mode
     function cancelEdit() {
       loadEvents();
     }
-    
+
     // Delete event
     function deleteEvent(id) {
       if (confirm('Are you sure you want to delete this entry?')) {
@@ -577,7 +577,7 @@
         loadEvents();
       }
     }
-    
+
     // Clear all events
     function clearLog() {
       if (confirm('Are you sure you want to delete ALL entries? This cannot be undone.')) {
@@ -585,27 +585,27 @@
         loadEvents();
       }
     }
-    
+
     // Initialize when DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
       // Load events
       loadEvents();
-      
+
       // New entry button
       document.getElementById('new-entry-btn').addEventListener('click', function() {
-        window.location.href = 'therapy-log-form.html';
+        window.location.href = 'emolog.html';
       });
-      
+
       // Clear log button
       document.getElementById('clear-log-btn').addEventListener('click', clearLog);
-      
+
       // Dark mode toggle
       const toggleButton = document.getElementById('theme-toggle');
       toggleButton.addEventListener('change', function() {
         document.body.classList.toggle('dark-mode');
         localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
       });
-      
+
       // Apply saved dark mode preference
       if (localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');

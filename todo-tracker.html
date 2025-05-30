@@ -131,6 +131,30 @@
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      margin-bottom: 10px;
+    }
+
+    .import-export-actions {
+      display: flex;
+      gap: 5px;
+      flex-direction: column;
+    }
+
+    .export-btn, .import-btn {
+      width: 100%;
+      padding: 6px 8px;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.2s;
+    }
+
+    .export-btn:hover, .import-btn:hover {
+      background-color: var(--accent-color);
+      color: white;
     }
 
     /* Main content styles */
@@ -443,29 +467,77 @@
 
       .sidebar {
         width: 100%;
-        max-height: 200px;
+        position: relative; /* Remove fixed positioning */
+        top: auto;
+        left: auto;
+        height: auto;
+        max-height: none;
         border-right: none;
         border-bottom: 1px solid var(--border-color);
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: auto;
         z-index: 100;
+        transition: max-height 0.3s ease;
+        overflow: hidden;
       }
 
       .sidebar.collapsed {
-        max-height: 60px;
+        max-height: 60px; /* Only show header when collapsed */
         width: 100%;
+      }
+
+      .sidebar-header {
+        position: sticky;
+        top: 0;
+        background-color: var(--sidebar-bg);
+        z-index: 101;
+      }
+
+      .topic-list {
+        max-height: 40vh; /* Limit topic list height on mobile */
+        overflow-y: auto;
+        margin: 10px 0;
+      }
+
+      .sidebar-actions {
+        padding: 10px 20px;
+        border-top: 1px solid var(--border-color);
+        background-color: var(--sidebar-bg);
       }
 
       .main-content {
         margin-left: 0;
-        margin-top: 200px;
+        margin-top: 0; /* Remove fixed margin */
+        padding: 15px; /* Reduce padding on mobile */
       }
 
-      .sidebar.collapsed + .main-content {
-        margin-left: 0;
-        margin-top: 60px;
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+      }
+
+      .controls {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .sort-controls {
+        justify-content: space-between;
+      }
+
+      .sort-controls select {
+        flex: 1;
+        margin-left: 10px;
+      }
+
+      /* Make buttons full width on mobile */
+      .controls button {
+        width: 100%;
+        padding: 12px;
+      }
+
+      .switch {
+        align-self: center;
       }
 
       .floating-add-btn {
@@ -474,6 +546,52 @@
         width: 50px;
         height: 50px;
         font-size: 20px;
+      }
+
+      /* Improve task cards on mobile */
+      .task-card {
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+
+      .task-title {
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .task-title h3 {
+        font-size: 1.1rem;
+      }
+
+      .task-date {
+        font-size: 0.9rem;
+        align-self: flex-start;
+      }
+
+      /* Improve form on mobile */
+      .task-form {
+        padding: 15px;
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 10px;
+        flex-direction: column;
+      }
+
+      .form-actions button {
+        width: 100%;
+        padding: 12px;
+      }
+
+      /* Topic headers on mobile */
+      .topic-header {
+        padding: 10px 0;
+        margin-top: 20px;
+      }
+
+      .topic-header h2 {
+        font-size: 1.3rem;
       }
     }
 
@@ -701,6 +819,11 @@
 
     <div class="sidebar-actions">
       <button class="add-topic-btn" id="add-topic-btn">+ New Topic</button>
+      <div class="import-export-actions">
+        <button class="export-btn" id="export-btn">📤 Export Data</button>
+        <button class="import-btn" id="import-btn">📥 Import Data</button>
+        <input type="file" id="import-file" accept=".json" style="display: none;">
+      </div>
     </div>
   </div>
 
@@ -1931,6 +2054,111 @@
       delete saveBtn.dataset.editId;
     }
 
+    // Export data to JSON file
+    function exportData() {
+      const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+      const topics = JSON.parse(localStorage.getItem('todoTopics') || '[]');
+      const pinnedTopics = JSON.parse(localStorage.getItem('pinnedTopics') || '[]');
+      const darkMode = localStorage.getItem('darkMode') === 'true';
+      const sortMethod = localStorage.getItem('todoSortMethod') || 'none';
+
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        tasks: tasks,
+        topics: topics,
+        pinnedTopics: pinnedTopics,
+        settings: {
+          darkMode: darkMode,
+          sortMethod: sortMethod
+        }
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `todo-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+
+      // Clean up
+      URL.revokeObjectURL(link.href);
+    }
+
+    // Import data from JSON file
+    function importData(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+
+          // Validate the imported data structure
+          if (!importedData.tasks || !Array.isArray(importedData.tasks)) {
+            throw new Error('Invalid file format: missing or invalid tasks array');
+          }
+
+          // Ask user for confirmation
+          const taskCount = importedData.tasks.length;
+          const topicCount = importedData.topics ? importedData.topics.length : 0;
+
+          const confirmMessage = `This will replace all current data with:\n` +
+            `• ${taskCount} tasks\n` +
+            `• ${topicCount} topics\n\n` +
+            `Your current data will be lost. Continue?`;
+
+          if (!confirm(confirmMessage)) {
+            return;
+          }
+
+          // Import tasks
+          localStorage.setItem('todoTasks', JSON.stringify(importedData.tasks));
+
+          // Import topics (if present)
+          if (importedData.topics && Array.isArray(importedData.topics)) {
+            localStorage.setItem('todoTopics', JSON.stringify(importedData.topics));
+          }
+
+          // Import pinned topics (if present)
+          if (importedData.pinnedTopics && Array.isArray(importedData.pinnedTopics)) {
+            localStorage.setItem('pinnedTopics', JSON.stringify(importedData.pinnedTopics));
+          }
+
+          // Import settings (if present)
+          if (importedData.settings) {
+            if (typeof importedData.settings.darkMode === 'boolean') {
+              localStorage.setItem('darkMode', importedData.settings.darkMode);
+              // Apply dark mode immediately
+              if (importedData.settings.darkMode) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('theme-toggle').checked = true;
+              } else {
+                document.body.classList.remove('dark-mode');
+                document.getElementById('theme-toggle').checked = false;
+              }
+            }
+
+            if (importedData.settings.sortMethod) {
+              localStorage.setItem('todoSortMethod', importedData.settings.sortMethod);
+              currentSortMethod = importedData.settings.sortMethod;
+              document.getElementById('sort-by').value = importedData.settings.sortMethod;
+            }
+          }
+
+          // Reload the interface
+          loadTopics();
+          loadTasks();
+
+          alert(`Successfully imported ${taskCount} tasks and ${topicCount} topics!`);
+
+        } catch (error) {
+          alert(`Error importing file: ${error.message}\n\nPlease make sure you're importing a valid todo-tracker backup file.`);
+        }
+      };
+
+      reader.readAsText(file);
+    }
+
     // Initialize when DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
       // Load topics
@@ -1969,6 +2197,24 @@
 
       // New topic button
       document.getElementById('add-topic-btn').addEventListener('click', createNewTopic);
+
+      // Export button
+      document.getElementById('export-btn').addEventListener('click', exportData);
+
+      // Import button
+      document.getElementById('import-btn').addEventListener('click', function() {
+        document.getElementById('import-file').click();
+      });
+
+      // Import file input
+      document.getElementById('import-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          importData(file);
+          // Reset the input so the same file can be imported again if needed
+          e.target.value = '';
+        }
+      });
 
       // Save task button
       document.getElementById('save-task-btn').addEventListener('click', saveTask);
