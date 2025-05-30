@@ -531,6 +531,32 @@
       border-left: 4px solid var(--accent-color);
     }
 
+    /* Different styles for built-in vs custom topics */
+    .topic-item.built-in {
+      background-color: rgba(74, 144, 226, 0.1);
+      border-left: 3px solid var(--accent-color);
+      font-weight: 500;
+    }
+
+    .topic-item.built-in:hover {
+      background-color: rgba(74, 144, 226, 0.15);
+    }
+
+    /* Pinned topics styling */
+    .topic-item.pinned {
+      background-color: rgba(255, 193, 7, 0.1);
+      border-left: 3px solid #ffc107;
+      order: -1; /* Move to top */
+    }
+
+    .topic-item.pinned:hover {
+      background-color: rgba(255, 193, 7, 0.15);
+    }
+
+    .topic-item.pinned .topic-name::before {
+      content: "📌 ";
+    }
+
     .topic-header.drag-over {
       background-color: rgba(74, 144, 226, 0.1);
       border: 2px dashed var(--accent-color);
@@ -611,6 +637,41 @@
     /* Hide the original Add Task button in header */
     .header #add-task-btn {
       display: none;
+    }
+
+    /* Sidebar context menu */
+    .sidebar-context-menu {
+      position: fixed;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1001;
+      min-width: 160px;
+      padding: 4px 0;
+    }
+
+    .sidebar-context-menu-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-context-menu-item:hover {
+      background-color: rgba(74, 144, 226, 0.1);
+    }
+
+    .sidebar-context-menu-item.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .sidebar-context-menu-item.disabled:hover {
+      background-color: transparent;
     }
   </style>
 </head>
@@ -748,10 +809,13 @@
         { id: 'completed', name: 'Completed', count: tasks.filter(task => task.completed).length }
       ];
 
+      // Get pinned topics for styling
+      const pinnedTopics = JSON.parse(localStorage.getItem('pinnedTopics') || '[]');
+
       // Add default topics to sidebar
       defaultTopics.forEach(topic => {
         const li = document.createElement('li');
-        li.className = 'topic-item';
+        li.className = 'topic-item built-in'; // Mark as built-in
         li.dataset.topicId = topic.id;
 
         // Set active class if this is the current filter
@@ -779,6 +843,12 @@
 
           // Load tasks with new filter
           loadTasks();
+        });
+
+        // Add context menu for built-in topics
+        li.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          showSidebarContextMenu(e, topic.id, true);
         });
 
         // Add drag and drop events for sidebar topics
@@ -821,6 +891,11 @@
         li.className = 'topic-item';
         li.dataset.topicId = topic.id;
 
+        // Check if this topic is pinned
+        if (pinnedTopics.includes(topic.id)) {
+          li.classList.add('pinned');
+        }
+
         // Set active class if this is the current filter
         if (topic.id === currentTopicFilter) {
           li.classList.add('active');
@@ -849,6 +924,12 @@
 
           // Load tasks with new filter
           loadTasks();
+        });
+
+        // Add context menu for custom topics
+        li.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          showSidebarContextMenu(e, topic.id, false);
         });
 
         // Add drag and drop events for custom topics
@@ -1189,23 +1270,28 @@
         this.classList.remove('dragging');
         hideDragIndicator();
 
-        // Clean up any remaining drag-over states
-        document.querySelectorAll('.drag-over').forEach(el => {
-          el.classList.remove('drag-over');
-        });
+        // Only clean up visual states, let drop event handle variable cleanup
+        setTimeout(() => {
+          // Clean up any remaining visual states
+          document.querySelectorAll('.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+          });
 
-        // Clean up reordering states
-        document.querySelectorAll('.reordering').forEach(el => {
-          el.classList.remove('reordering');
-        });
+          document.querySelectorAll('.reordering').forEach(el => {
+            el.classList.remove('reordering');
+          });
 
-        document.querySelectorAll('.task-drop-zone.active').forEach(el => {
-          el.classList.remove('active');
-        });
+          document.querySelectorAll('.task-drop-zone.active').forEach(el => {
+            el.classList.remove('active');
+          });
 
-        draggedTask = null;
-        draggedTaskTopicId = null;
-        isReordering = false;
+          // Only clear variables if they haven't been cleared by drop event
+          if (draggedTask !== null) {
+            draggedTask = null;
+            draggedTaskTopicId = null;
+            isReordering = false;
+          }
+        }, 150); // Longer delay to ensure drop completes first
       });
 
       return card;
@@ -1320,6 +1406,159 @@
       }
     }
 
+    // Show sidebar context menu
+    function showSidebarContextMenu(e, topicId, isBuiltIn = false) {
+      // Remove any existing context menu
+      hideSidebarContextMenu();
+
+      const contextMenu = document.createElement('div');
+      contextMenu.className = 'sidebar-context-menu';
+      contextMenu.id = 'sidebar-context-menu';
+
+      // Position the menu
+      contextMenu.style.left = e.pageX + 'px';
+      contextMenu.style.top = e.pageY + 'px';
+
+      // Get pinned topics from localStorage
+      const pinnedTopics = JSON.parse(localStorage.getItem('pinnedTopics') || '[]');
+      const isPinned = pinnedTopics.includes(topicId);
+
+      // Create menu items based on topic type
+      const menuItems = [];
+
+      if (!isBuiltIn) {
+        // Pin/Unpin option for custom topics only
+        menuItems.push({
+          text: isPinned ? '📌 Unpin from Top' : '📌 Pin to Top',
+          action: () => toggleTopicPin(topicId)
+        });
+      }
+
+      // Complete all tasks in topic
+      menuItems.push({
+        text: '✅ Complete All Tasks',
+        action: () => completeAllTasksInTopic(topicId),
+        disabled: isBuiltIn && topicId === 'completed'
+      });
+
+      // Clear all tasks in topic
+      menuItems.push({
+        text: '🗑️ Clear All Tasks',
+        action: () => clearAllTasksInTopic(topicId),
+        disabled: isBuiltIn && topicId === 'completed'
+      });
+
+      // Build menu HTML
+      menuItems.forEach(item => {
+        const menuItem = document.createElement('div');
+        menuItem.className = 'sidebar-context-menu-item' + (item.disabled ? ' disabled' : '');
+        menuItem.textContent = item.text;
+
+        if (!item.disabled) {
+          menuItem.addEventListener('click', () => {
+            item.action();
+            hideSidebarContextMenu();
+          });
+        }
+
+        contextMenu.appendChild(menuItem);
+      });
+
+      document.body.appendChild(contextMenu);
+
+      // Adjust position if menu goes off screen
+      const rect = contextMenu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) {
+        contextMenu.style.left = (e.pageX - rect.width) + 'px';
+      }
+      if (rect.bottom > window.innerHeight) {
+        contextMenu.style.top = (e.pageY - rect.height) + 'px';
+      }
+    }
+
+    // Hide sidebar context menu
+    function hideSidebarContextMenu() {
+      const existingMenu = document.getElementById('sidebar-context-menu');
+      if (existingMenu) {
+        existingMenu.remove();
+      }
+    }
+
+    // Toggle topic pin status
+    function toggleTopicPin(topicId) {
+      const pinnedTopics = JSON.parse(localStorage.getItem('pinnedTopics') || '[]');
+      const index = pinnedTopics.indexOf(topicId);
+
+      if (index === -1) {
+        pinnedTopics.push(topicId);
+      } else {
+        pinnedTopics.splice(index, 1);
+      }
+
+      localStorage.setItem('pinnedTopics', JSON.stringify(pinnedTopics));
+      loadTopics();
+    }
+
+    // Complete all tasks in a topic
+    function completeAllTasksInTopic(topicId) {
+      const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+      let tasksToComplete = [];
+
+      if (topicId === 'all') {
+        tasksToComplete = tasks.filter(task => !task.completed);
+      } else if (topicId === 'completed') {
+        return; // Can't complete already completed tasks
+      } else if (topicId === '') {
+        tasksToComplete = tasks.filter(task => (!task.topicId || task.topicId === '') && !task.completed);
+      } else {
+        tasksToComplete = tasks.filter(task => task.topicId === topicId && !task.completed);
+      }
+
+      if (tasksToComplete.length === 0) {
+        alert('No incomplete tasks found in this topic.');
+        return;
+      }
+
+      if (confirm(`Complete ${tasksToComplete.length} task(s) in this topic?`)) {
+        tasksToComplete.forEach(task => {
+          task.completed = true;
+          task.completedDate = new Date().toISOString();
+        });
+
+        localStorage.setItem('todoTasks', JSON.stringify(tasks));
+        loadTopics();
+        loadTasks();
+      }
+    }
+
+    // Clear all tasks in a topic
+    function clearAllTasksInTopic(topicId) {
+      const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+      let tasksToDelete = [];
+
+      if (topicId === 'all') {
+        tasksToDelete = tasks;
+      } else if (topicId === 'completed') {
+        tasksToDelete = tasks.filter(task => task.completed);
+      } else if (topicId === '') {
+        tasksToDelete = tasks.filter(task => !task.topicId || task.topicId === '');
+      } else {
+        tasksToDelete = tasks.filter(task => task.topicId === topicId);
+      }
+
+      if (tasksToDelete.length === 0) {
+        alert('No tasks found in this topic.');
+        return;
+      }
+
+      if (confirm(`Delete ${tasksToDelete.length} task(s) from this topic? This cannot be undone.`)) {
+        const remainingTasks = tasks.filter(task => !tasksToDelete.includes(task));
+        localStorage.setItem('todoTasks', JSON.stringify(remainingTasks));
+        loadTopics();
+        loadTasks();
+      }
+    }
+
     // Change task priority
     function changeTaskPriority(taskId, newPriority) {
       const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
@@ -1377,11 +1616,15 @@
     // Reorder tasks within a topic
     function reorderTasksInTopic(draggedTaskId, targetTaskId, insertBefore = true) {
       const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
-      const draggedTaskIndex = tasks.findIndex(t => t.id == draggedTaskId);
-      const targetTaskIndex = tasks.findIndex(t => t.id == targetTaskId);
+
+      // Convert IDs to numbers for comparison since task IDs are numbers
+      const draggedId = parseInt(draggedTaskId);
+      const targetId = parseInt(targetTaskId);
+
+      const draggedTaskIndex = tasks.findIndex(t => t.id === draggedId);
+      const targetTaskIndex = tasks.findIndex(t => t.id === targetId);
 
       if (draggedTaskIndex === -1 || targetTaskIndex === -1) {
-        console.log('Task not found:', draggedTaskId, targetTaskId);
         return false;
       }
 
@@ -1396,7 +1639,7 @@
       const draggedTask = tasks.splice(draggedTaskIndex, 1)[0];
 
       // Recalculate target index after removal
-      let newTargetIndex = tasks.findIndex(t => t.id == targetTaskId);
+      let newTargetIndex = tasks.findIndex(t => t.id === targetId);
 
       // Adjust insertion point
       const insertIndex = insertBefore ? newTargetIndex : newTargetIndex + 1;
@@ -1405,8 +1648,9 @@
       tasks.splice(insertIndex, 0, draggedTask);
 
       localStorage.setItem('todoTasks', JSON.stringify(tasks));
+
       loadTopics();
-      loadTasks();
+      // Don't call loadTasks here - let the drop event handle it
       return true;
     }
 
@@ -1434,21 +1678,42 @@
         this.classList.remove('active');
         hideDragIndicator();
 
-        if (draggedTask && isReordering) {
-          console.log('Attempting reorder:', draggedTask, 'target:', this.dataset.targetTaskId, 'before:', this.dataset.insertBefore);
+        // Store the values before they get cleared
+        const currentDraggedTask = draggedTask;
+        const targetId = this.dataset.targetTaskId;
+        const insertBefore = this.dataset.insertBefore === 'true';
 
-          // Check if both tasks are in the same topic
-          const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
-          const draggedTaskObj = tasks.find(t => t.id == draggedTask);
-          const targetTaskObj = tasks.find(t => t.id == this.dataset.targetTaskId);
+        console.log('Drop - draggedTask:', currentDraggedTask, 'target:', targetId, 'before:', insertBefore);
 
-          if (draggedTaskObj && targetTaskObj && draggedTaskObj.topicId === targetTaskObj.topicId) {
-            const success = reorderTasksInTopic(draggedTask, this.dataset.targetTaskId, this.dataset.insertBefore === 'true');
-            console.log('Reorder result:', success);
-          } else {
-            console.log('Tasks not in same topic, skipping reorder');
-          }
+        // Reorder the task
+        if (currentDraggedTask) {
+          const success = reorderTasksInTopic(currentDraggedTask, targetId, insertBefore);
+          console.log('Reorder success:', success);
+
+          // Force a complete refresh to ensure drop zones are recreated
+          setTimeout(() => {
+            console.log('Forcing refresh after reorder');
+            loadTasks();
+          }, 50);
         }
+
+        // Clean up immediately after drop
+        draggedTask = null;
+        draggedTaskTopicId = null;
+        isReordering = false;
+
+        // Clean up visual states
+        document.querySelectorAll('.drag-over').forEach(el => {
+          el.classList.remove('drag-over');
+        });
+
+        document.querySelectorAll('.reordering').forEach(el => {
+          el.classList.remove('reordering');
+        });
+
+        document.querySelectorAll('.task-drop-zone.active').forEach(el => {
+          el.classList.remove('active');
+        });
       });
 
       return dropZone;
@@ -1744,11 +2009,15 @@
         document.getElementById('sort-by').value = savedSortMethod;
       }
 
-      // Handle clicks on the document to hide context menu
+      // Handle clicks on the document to hide context menus
       document.addEventListener('click', function(e) {
-        // Hide context menu when clicking outside of it
+        // Hide task context menu when clicking outside of it
         if (!e.target.closest('.context-menu')) {
           hideContextMenu();
+        }
+        // Hide sidebar context menu when clicking outside of it
+        if (!e.target.closest('.sidebar-context-menu')) {
+          hideSidebarContextMenu();
         }
       });
     });
