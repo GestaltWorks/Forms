@@ -160,14 +160,17 @@
       padding: 20px;
       margin-bottom: 20px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      cursor: grab;
       transition: transform 0.2s, box-shadow 0.2s;
       position: relative;
     }
     
     .task-card:hover {
-      transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      transform: none; /* Remove the movement on hover */
+    }
+    
+    .task-card {
+      cursor: default;
     }
     
     .task-card.dragging {
@@ -423,32 +426,25 @@
     }
     
     /* Add styles for selected task and action menu */
+    /* Hide action buttons until task is selected */
     .task-actions {
       position: absolute;
       right: 10px;
       bottom: 10px;
-      background-color: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      display: none;
+      display: none; /* Hide by default */
+      gap: 5px;
       z-index: 10;
     }
-    
+
     .task-card.selected .task-actions {
-      display: flex;
+      display: flex; /* Show only when selected */
     }
-    
+
+    /* Make buttons simpler and more reliable */
     .task-actions button {
-      padding: 8px 12px;
-      background: none;
-      border: none;
-      color: var(--text-color);
-      cursor: pointer;
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      padding: 5px 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
     }
     
     .task-actions button:hover {
@@ -586,47 +582,53 @@
       // Keep the first "No Topic" option in the form select
       topicSelect.innerHTML = '<option value="">-- No Topic --</option>';
       
-      // Keep the first three items (All, Uncategorized, and Completed) in the sidebar
-      const allTasksItem = topicList.querySelector('[data-topic-id="all"]');
-      const uncategorizedItem = topicList.querySelector('[data-topic-id=""]');
-      const completedItem = topicList.querySelector('[data-topic-id="completed"]');
+      // Clear the topic list first
       topicList.innerHTML = '';
-      topicList.appendChild(allTasksItem);
-      topicList.appendChild(uncategorizedItem);
-      topicList.appendChild(completedItem);
       
-      // Count tasks
-      const taskCounts = {
-        'all': tasks.length,
-        '': tasks.filter(task => !task.topicId || task.topicId === '').length,
-        'completed': tasks.filter(task => task.topicId === 'completed').length
-      };
+      // Add default items with proper event listeners
+      const defaultTopics = [
+        { id: 'all', name: 'All Tasks', count: tasks.length },
+        { id: '', name: 'Uncategorized', count: tasks.filter(task => !task.topicId || task.topicId === '').length },
+        { id: 'completed', name: 'Completed', count: tasks.filter(task => task.completed).length }
+      ];
       
-      // Update counts
-      document.getElementById('all-count').textContent = taskCounts['all'];
-      document.getElementById('uncategorized-count').textContent = taskCounts[''];
-      document.getElementById('completed-count').textContent = taskCounts['completed'];
-      
-      // Add click events to All, Uncategorized, and Completed
-      allTasksItem.addEventListener('click', function() {
-        currentTopicFilter = 'all';
-        setActiveTopicItem('all');
-        loadTasks();
+      // Add default topics to sidebar
+      defaultTopics.forEach(topic => {
+        const li = document.createElement('li');
+        li.className = 'topic-item';
+        li.dataset.topicId = topic.id;
+        
+        // Set active class if this is the current filter
+        if (topic.id === currentTopicFilter) {
+          li.classList.add('active');
+        }
+        
+        li.innerHTML = `
+          <span class="topic-name">${topic.name}</span>
+          <span class="topic-count" id="${topic.id === '' ? 'uncategorized' : topic.id}-count">${topic.count}</span>
+        `;
+        
+        // Add click event to filter tasks
+        li.addEventListener('click', function() {
+          // Remove active class from all topics
+          document.querySelectorAll('.topic-item').forEach(item => {
+            item.classList.remove('active');
+          });
+          
+          // Add active class to clicked topic
+          this.classList.add('active');
+          
+          // Set current topic filter
+          currentTopicFilter = this.dataset.topicId;
+          
+          // Load tasks with new filter
+          loadTasks();
+        });
+        
+        topicList.appendChild(li);
       });
       
-      uncategorizedItem.addEventListener('click', function() {
-        currentTopicFilter = '';
-        setActiveTopicItem('');
-        loadTasks();
-      });
-      
-      completedItem.addEventListener('click', function() {
-        currentTopicFilter = 'completed';
-        setActiveTopicItem('completed');
-        loadTasks();
-      });
-      
-      // Add topics to select and sidebar
+      // Add custom topics to select and sidebar
       topics.forEach(topic => {
         // Add to form select
         const option = document.createElement('option');
@@ -634,32 +636,42 @@
         option.textContent = topic.name;
         topicSelect.appendChild(option);
         
-        // Count tasks for this topic (excluding completed tasks)
-        taskCounts[topic.id] = tasks.filter(task => 
-          task.topicId === topic.id && task.topicId !== 'completed'
-        ).length;
-        
         // Add to sidebar
-        const topicItem = document.createElement('li');
-        topicItem.className = 'topic-item';
-        topicItem.dataset.topicId = topic.id;
-        if (currentTopicFilter === topic.id) {
-          topicItem.classList.add('active');
+        const li = document.createElement('li');
+        li.className = 'topic-item';
+        li.dataset.topicId = topic.id;
+        
+        // Set active class if this is the current filter
+        if (topic.id === currentTopicFilter) {
+          li.classList.add('active');
         }
         
-        topicItem.innerHTML = `
+        // Count tasks for this topic
+        const topicTasks = tasks.filter(task => task.topicId === topic.id);
+        
+        li.innerHTML = `
           <span class="topic-name">${topic.name}</span>
-          <span class="topic-count">${taskCounts[topic.id]}</span>
+          <span class="topic-count">${topicTasks.length}</span>
         `;
         
-        topicList.appendChild(topicItem);
-        
         // Add click event to filter tasks
-        topicItem.addEventListener('click', function() {
-          currentTopicFilter = topic.id;
-          setActiveTopicItem(topic.id);
+        li.addEventListener('click', function() {
+          // Remove active class from all topics
+          document.querySelectorAll('.topic-item').forEach(item => {
+            item.classList.remove('active');
+          });
+          
+          // Add active class to clicked topic
+          this.classList.add('active');
+          
+          // Set current topic filter
+          currentTopicFilter = this.dataset.topicId;
+          
+          // Load tasks with new filter
           loadTasks();
         });
+        
+        topicList.appendChild(li);
       });
     }
     
@@ -724,111 +736,97 @@
       }
       
       // Filter tasks based on current topic filter
-      let filteredTasks = tasks;
-      if (currentTopicFilter !== 'all') {
-        filteredTasks = tasks.filter(task => (task.topicId || '') === currentTopicFilter);
-      }
-      
-      // Group tasks by topic
-      const tasksByTopic = {};
-      
-      // If viewing all tasks, create a group for each topic
+      let filteredTasks = [];
       if (currentTopicFilter === 'all') {
-        // Add uncategorized group
-        tasksByTopic[''] = [];
+        filteredTasks = tasks;
         
-        // Create a group for each topic
+        // Group tasks by topic
+        const tasksByTopic = {};
+        
+        // Add "Uncategorized" group
+        tasksByTopic[''] = filteredTasks.filter(task => !task.topicId || task.topicId === '');
+        
+        // Add tasks for each topic
         topics.forEach(topic => {
-          tasksByTopic[topic.id] = [];
+          tasksByTopic[topic.id] = filteredTasks.filter(task => task.topicId === topic.id);
         });
         
-        // Sort tasks into groups
-        filteredTasks.forEach(task => {
-          const topicId = task.topicId || '';
-          if (!tasksByTopic[topicId]) {
-            tasksByTopic[topicId] = []; // Create group if it doesn't exist
-          }
-          tasksByTopic[topicId].push(task);
-        });
-      } else {
-        // If viewing a specific topic, just use that one
-        tasksByTopic[currentTopicFilter] = filteredTasks;
-      }
-      
-      // Sort each topic's tasks
-      Object.keys(tasksByTopic).forEach(topicId => {
-        tasksByTopic[topicId].sort((a, b) => {
-          if (a.completed !== b.completed) {
-            return a.completed ? 1 : -1;
-          }
-          if (!a.dueDate && !b.dueDate) return 0;
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return new Date(a.dueDate) - new Date(b.dueDate);
-        });
-      });
-      
-      // Create topic sections
-      Object.keys(tasksByTopic).forEach(topicId => {
-        const topicTasks = tasksByTopic[topicId];
-        if (topicTasks.length === 0) return; // Skip empty topics
-        
-        // Find topic name
-        let topicName = "Uncategorized";
-        if (topicId !== '') {
-          const topic = topics.find(t => t.id === topicId);
-          if (topic) topicName = topic.name;
+        // Add "Completed" group if there are completed tasks
+        const completedTasks = filteredTasks.filter(task => task.completed);
+        if (completedTasks.length > 0) {
+          tasksByTopic['completed'] = completedTasks;
         }
         
-        // Create topic section
-        const topicSection = document.createElement('div');
-        topicSection.className = 'topic-section';
-        topicSection.dataset.topicId = topicId;
-        
-        // Create topic header with collapse button
-        const topicHeader = document.createElement('div');
-        topicHeader.className = 'topic-header';
-        topicHeader.innerHTML = `
-          <h2>${topicName}</h2>
-          <button class="collapse-btn">▼</button>
-        `;
-        topicSection.appendChild(topicHeader);
-        
-        // Create content container for tasks
-        const topicContent = document.createElement('div');
-        topicContent.className = 'topic-content';
-        topicContent.dataset.topicId = topicId;
-        
-        // Create dropzone for drag and drop
-        const dropzone = document.createElement('div');
-        dropzone.className = 'dropzone';
-        dropzone.dataset.topicId = topicId;
-        dropzone.textContent = 'Drop task here';
-        dropzone.style.display = 'none'; // Hide initially
-        
-        // Add drag and drop event listeners to dropzone
-        dropzone.addEventListener('dragover', handleDragOver);
-        dropzone.addEventListener('dragleave', handleDragLeave);
-        dropzone.addEventListener('drop', handleDrop);
-        
-        topicContent.appendChild(dropzone);
-        
-        // Create task cards for this topic
-        topicTasks.forEach(task => {
-          const card = createTaskCard(task);
-          topicContent.appendChild(card);
+        // Create topic sections
+        Object.keys(tasksByTopic).forEach(topicId => {
+          if (tasksByTopic[topicId].length === 0) return;
+          
+          // Get topic name
+          let topicName = 'Uncategorized';
+          if (topicId === 'completed') {
+            topicName = 'Completed';
+          } else if (topicId !== '') {
+            const topic = topics.find(t => t.id === topicId);
+            if (topic) topicName = topic.name;
+          }
+          
+          // Create topic header
+          const topicHeader = document.createElement('div');
+          topicHeader.className = 'topic-header';
+          topicHeader.innerHTML = `
+            <h2>${topicName}</h2>
+            <button class="collapse-btn">▼</button>
+          `;
+          
+          // Create topic content container
+          const topicContent = document.createElement('div');
+          topicContent.className = 'topic-content';
+          topicContent.dataset.topicId = topicId;
+          
+          // Add tasks to topic content
+          tasksByTopic[topicId].forEach(task => {
+            const taskCard = createTaskCard(task);
+            topicContent.appendChild(taskCard);
+          });
+          
+          // Add to container
+          tasksContainer.appendChild(topicHeader);
+          tasksContainer.appendChild(topicContent);
+          
+          // Add collapse functionality
+          const collapseBtn = topicHeader.querySelector('.collapse-btn');
+          collapseBtn.addEventListener('click', function() {
+            topicContent.classList.toggle('collapsed');
+            this.textContent = topicContent.classList.contains('collapsed') ? '▶' : '▼';
+          });
         });
+      } else if (currentTopicFilter === 'completed') {
+        // Show only completed tasks
+        filteredTasks = tasks.filter(task => task.completed);
         
-        topicSection.appendChild(topicContent);
-        tasksContainer.appendChild(topicSection);
-        
-        // Add click event to collapse button
-        const collapseBtn = topicHeader.querySelector('.collapse-btn');
-        collapseBtn.addEventListener('click', function() {
-          topicContent.classList.toggle('collapsed');
-          collapseBtn.textContent = topicContent.classList.contains('collapsed') ? '▶' : '▼';
+        // Add tasks directly to container
+        filteredTasks.forEach(task => {
+          const taskCard = createTaskCard(task);
+          tasksContainer.appendChild(taskCard);
         });
-      });
+      } else {
+        // Filter by specific topic
+        filteredTasks = tasks.filter(task => task.topicId === currentTopicFilter);
+        
+        // Add tasks directly to container
+        filteredTasks.forEach(task => {
+          const taskCard = createTaskCard(task);
+          tasksContainer.appendChild(taskCard);
+        });
+      }
+      
+      // Show no tasks message if needed after filtering
+      if (filteredTasks.length === 0) {
+        const noTasksDiv = document.createElement('div');
+        noTasksDiv.className = 'no-tasks';
+        noTasksDiv.textContent = 'No tasks found for this filter.';
+        tasksContainer.appendChild(noTasksDiv);
+      }
     }
     
     // Create a task card element
@@ -836,7 +834,6 @@
       const card = document.createElement('div');
       card.className = 'task-card';
       card.dataset.id = task.id;
-      card.draggable = true;
       
       // Priority class mapping
       const priorityClass = `priority-${task.priority || 'medium'}`;
@@ -844,6 +841,7 @@
       // Format due date
       const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date';
       
+      // Create the HTML structure
       card.innerHTML = `
         <div class="task-title">
           <h3 class="${task.completed ? 'completed-task' : ''}">
@@ -858,65 +856,67 @@
           <p>${task.description}</p>
         </div>` : ''}
         <div class="task-actions">
-          <button class="edit-btn" data-id="${task.id}">✏️ Edit</button>
-          <button class="delete-btn" data-id="${task.id}">🗑️ Delete</button>
+          <button class="edit-btn">✏️ Edit</button>
+          <button class="delete-btn">🗑️ Delete</button>
         </div>
       `;
       
-      // Add event listeners
+      // Add checkbox event
       const checkbox = card.querySelector('.task-checkbox');
       checkbox.addEventListener('change', function(e) {
-        e.stopPropagation(); // Prevent selecting the task when clicking checkbox
+        e.stopPropagation(); // Prevent card selection
         toggleTaskCompletion(task.id);
       });
       
-      // Add click event to select the task
-      card.addEventListener('click', function(e) {
-        // Don't select if clicking on checkbox
-        if (e.target.classList.contains('task-checkbox')) return;
-        
-        selectTask(this);
-      });
-      
+      // Add edit button event
       const editBtn = card.querySelector('.edit-btn');
       editBtn.addEventListener('click', function(e) {
-        e.stopPropagation(); // Prevent event bubbling
+        e.stopPropagation(); // Prevent card selection
+        e.preventDefault(); // Prevent default behavior
         editTask(task.id);
       });
       
+      // Add delete button event
       const deleteBtn = card.querySelector('.delete-btn');
       deleteBtn.addEventListener('click', function(e) {
-        e.stopPropagation(); // Prevent event bubbling
+        e.stopPropagation(); // Prevent card selection
+        e.preventDefault(); // Prevent default behavior
         deleteTask(task.id);
       });
       
-      // Add drag and drop event listeners
-      card.addEventListener('dragstart', handleDragStart);
-      card.addEventListener('dragend', handleDragEnd);
+      // Add click event for task selection - but only for the card itself
+      card.addEventListener('click', function(e) {
+        // Only select if clicking directly on the card or its non-interactive elements
+        if (e.target === card || 
+            e.target.classList.contains('task-title') ||
+            e.target.classList.contains('task-description') ||
+            e.target.tagName === 'P' ||
+            e.target.tagName === 'H3' ||
+            e.target.classList.contains('priority')) {
+          selectTask(this);
+        }
+      });
       
       return card;
     }
     
     // Select a task
     function selectTask(taskCard) {
-      // If there's already a selected task, deselect it
+      // Deselect previously selected task
       if (selectedTask) {
         selectedTask.classList.remove('selected');
       }
       
-      // If clicking the same task, deselect it
-      if (selectedTask === taskCard) {
+      // Select new task if it's not the same as previously selected
+      if (selectedTask !== taskCard) {
+        taskCard.classList.add('selected');
+        selectedTask = taskCard;
+        showOverlay();
+      } else {
+        // If clicking the same task, just deselect it
         selectedTask = null;
         hideOverlay();
-        return;
       }
-      
-      // Select the new task
-      taskCard.classList.add('selected');
-      selectedTask = taskCard;
-      
-      // Show overlay to allow clicking outside to deselect
-      showOverlay();
     }
     
     // Show overlay for clicking outside to deselect
@@ -947,68 +947,6 @@
       const overlay = document.getElementById('click-overlay');
       if (overlay) {
         overlay.classList.remove('active');
-      }
-    }
-    
-    // Drag and drop handlers
-    function handleDragStart(e) {
-      // Deselect any selected task
-      if (selectedTask) {
-        selectedTask.classList.remove('selected');
-        selectedTask = null;
-        hideOverlay();
-      }
-      
-      this.classList.add('dragging');
-      draggedTask = this;
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', this.dataset.id);
-      
-      // Show all dropzones
-      document.querySelectorAll('.dropzone').forEach(zone => {
-        zone.style.display = 'block';
-      });
-    }
-    
-    function handleDragEnd(e) {
-      this.classList.remove('dragging');
-      draggedTask = null;
-      
-      // Hide all dropzones
-      document.querySelectorAll('.dropzone').forEach(zone => {
-        zone.style.display = 'none';
-        zone.classList.remove('active');
-      });
-    }
-    
-    function handleDragOver(e) {
-      e.preventDefault();
-      this.classList.add('active');
-      e.dataTransfer.dropEffect = 'move';
-    }
-    
-    function handleDragLeave(e) {
-      this.classList.remove('active');
-    }
-    
-    function handleDrop(e) {
-      e.preventDefault();
-      this.classList.remove('active');
-      
-      const taskId = e.dataTransfer.getData('text/plain');
-      const newTopicId = this.dataset.topicId;
-      
-      // Update task's topic
-      const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
-      const taskIndex = tasks.findIndex(t => t.id == taskId);
-      
-      if (taskIndex !== -1) {
-        tasks[taskIndex].topicId = newTopicId;
-        localStorage.setItem('todoTasks', JSON.stringify(tasks));
-        
-        // Reload tasks and topics
-        loadTopics();
-        loadTasks();
       }
     }
     
@@ -1063,6 +1001,12 @@
         // Update save button to handle edit
         const saveBtn = document.getElementById('save-task-btn');
         saveBtn.dataset.editId = id;
+        
+        // Ensure the form is visible
+        window.scrollTo({
+          top: document.getElementById('task-form-container').offsetTop - 20,
+          behavior: 'smooth'
+        });
       }
     }
     
@@ -1224,16 +1168,6 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
 
 
 
