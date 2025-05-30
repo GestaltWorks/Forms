@@ -149,8 +149,29 @@
 
     .controls {
       display: flex;
-      gap: 10px;
+      gap: 15px;
       align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .sort-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sort-controls label {
+      font-weight: 500;
+      color: var(--text-color);
+    }
+
+    .sort-controls select {
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      font-size: 14px;
     }
 
     /* Task card styles */
@@ -473,11 +494,53 @@
 
     .topic-item.drag-over {
       background-color: rgba(74, 144, 226, 0.2);
+      border-left: 4px solid var(--accent-color);
+    }
+
+    .topic-header.drag-over {
+      background-color: rgba(74, 144, 226, 0.1);
+      border: 2px dashed var(--accent-color);
+      border-radius: 4px;
     }
 
     .task-card.dragging {
       opacity: 0.5;
       cursor: grabbing;
+      transform: rotate(2deg);
+    }
+
+    .drag-indicator {
+      position: fixed;
+      background-color: var(--accent-color);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
+
+    /* Task reordering styles */
+    .task-drop-zone {
+      height: 4px;
+      margin: 2px 0;
+      border-radius: 2px;
+      transition: all 0.2s ease;
+      opacity: 0;
+    }
+
+    .task-drop-zone.active {
+      opacity: 1;
+      height: 8px;
+      background-color: var(--accent-color);
+      margin: 8px 0;
+    }
+
+    .topic-content.reordering .task-drop-zone {
+      opacity: 0.3;
+      height: 6px;
+      background-color: var(--border-color);
     }
   </style>
 </head>
@@ -515,6 +578,16 @@
     <div class="header">
       <h1>To-Do Tracker</h1>
       <div class="controls">
+        <div class="sort-controls">
+          <label for="sort-by">Sort by:</label>
+          <select id="sort-by">
+            <option value="none">Default</option>
+            <option value="date-asc">Date (Oldest First)</option>
+            <option value="date-desc">Date (Newest First)</option>
+            <option value="priority-high">Priority (High to Low)</option>
+            <option value="priority-low">Priority (Low to High)</option>
+          </select>
+        </div>
         <button id="add-task-btn">Add Task</button>
         <button id="clear-completed-btn">Clear Completed</button>
         <label class="switch">
@@ -571,9 +644,13 @@
     </div>
   </div>
 
+  <!-- Drag indicator -->
+  <div id="drag-indicator" class="drag-indicator"></div>
+
   <script>
     // Global variables
     let currentTopicFilter = 'all';
+    let currentSortMethod = 'none';
     let draggedTask = null;
 
     // Load topics from localStorage
@@ -629,6 +706,35 @@
           loadTasks();
         });
 
+        // Add drag and drop events for sidebar topics
+        li.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          this.classList.add('drag-over');
+
+          const topicName = this.querySelector('.topic-name').textContent;
+          showDragIndicator(e, `Move to ${topicName}`);
+        });
+
+        li.addEventListener('dragleave', function(e) {
+          this.classList.remove('drag-over');
+          hideDragIndicator();
+        });
+
+        li.addEventListener('drop', function(e) {
+          e.preventDefault();
+          this.classList.remove('drag-over');
+          hideDragIndicator();
+
+          if (draggedTask) {
+            const success = moveTaskToTopic(draggedTask, this.dataset.topicId);
+            if (!success) {
+              alert('Cannot move completed tasks to regular topics or incomplete tasks to completed.');
+            }
+            draggedTask = null;
+          }
+        });
+
         topicList.appendChild(li);
       });
 
@@ -673,6 +779,35 @@
 
           // Load tasks with new filter
           loadTasks();
+        });
+
+        // Add drag and drop events for custom topics
+        li.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          this.classList.add('drag-over');
+
+          const topicName = this.querySelector('.topic-name').textContent;
+          showDragIndicator(e, `Move to ${topicName}`);
+        });
+
+        li.addEventListener('dragleave', function(e) {
+          this.classList.remove('drag-over');
+          hideDragIndicator();
+        });
+
+        li.addEventListener('drop', function(e) {
+          e.preventDefault();
+          this.classList.remove('drag-over');
+          hideDragIndicator();
+
+          if (draggedTask) {
+            const success = moveTaskToTopic(draggedTask, this.dataset.topicId);
+            if (!success) {
+              alert('Cannot move completed tasks to regular topics or incomplete tasks to completed.');
+            }
+            draggedTask = null;
+          }
         });
 
         topicList.appendChild(li);
@@ -744,72 +879,113 @@
       if (currentTopicFilter === 'all') {
         filteredTasks = tasks;
 
-        // Group tasks by topic
-        const tasksByTopic = {};
+        // Apply sorting if enabled
+        if (currentSortMethod !== 'none') {
+          // Filter out completed tasks, then sort and display in a single list
+          const incompleteTasks = filteredTasks.filter(task => !task.completed);
+          const sortedTasks = sortTasks(incompleteTasks);
 
-        // Add "Uncategorized" group
-        tasksByTopic[''] = filteredTasks.filter(task => !task.topicId || task.topicId === '');
+          sortedTasks.forEach(task => {
+            const taskCard = createTaskCard(task);
+            tasksContainer.appendChild(taskCard);
+          });
+        } else {
+          // Group tasks by topic (original behavior when no sorting)
+          const tasksByTopic = {};
 
-        // Add tasks for each topic
-        topics.forEach(topic => {
-          tasksByTopic[topic.id] = filteredTasks.filter(task => task.topicId === topic.id);
-        });
+          // Add "Uncategorized" group
+          tasksByTopic[''] = filteredTasks.filter(task => !task.topicId || task.topicId === '');
 
-        // Add "Completed" group if there are completed tasks
-        const completedTasks = filteredTasks.filter(task => task.completed);
-        if (completedTasks.length > 0) {
-          tasksByTopic['completed'] = completedTasks;
-        }
+          // Add tasks for each topic
+          topics.forEach(topic => {
+            tasksByTopic[topic.id] = filteredTasks.filter(task => task.topicId === topic.id);
+          });
 
-        // Create topic sections
-        Object.keys(tasksByTopic).forEach(topicId => {
-          if (tasksByTopic[topicId].length === 0) return;
-
-          // Get topic name
-          let topicName = 'Uncategorized';
-          if (topicId === 'completed') {
-            topicName = 'Completed';
-          } else if (topicId !== '') {
-            const topic = topics.find(t => t.id === topicId);
-            if (topic) topicName = topic.name;
+          // Add "Completed" group if there are completed tasks
+          const completedTasks = filteredTasks.filter(task => task.completed);
+          if (completedTasks.length > 0) {
+            tasksByTopic['completed'] = completedTasks;
           }
 
-          // Create topic header
-          const topicHeader = document.createElement('div');
-          topicHeader.className = 'topic-header';
-          topicHeader.innerHTML = `
-            <h2>${topicName}</h2>
-            <button class="collapse-btn">▼</button>
-          `;
+          // Create topic sections
+          Object.keys(tasksByTopic).forEach(topicId => {
+            if (tasksByTopic[topicId].length === 0) return;
 
-          // Create topic content container
-          const topicContent = document.createElement('div');
-          topicContent.className = 'topic-content';
-          topicContent.dataset.topicId = topicId;
+            // Get topic name
+            let topicName = 'Uncategorized';
+            if (topicId === 'completed') {
+              topicName = 'Completed';
+            } else if (topicId !== '') {
+              const topic = topics.find(t => t.id === topicId);
+              if (topic) topicName = topic.name;
+            }
 
-          // Add tasks to topic content
-          tasksByTopic[topicId].forEach(task => {
-            const taskCard = createTaskCard(task);
-            topicContent.appendChild(taskCard);
+            // Create topic header
+            const topicHeader = document.createElement('div');
+            topicHeader.className = 'topic-header';
+            topicHeader.dataset.topicId = topicId;
+            topicHeader.innerHTML = `
+              <h2>${topicName}</h2>
+              <button class="collapse-btn">▼</button>
+            `;
+
+            // Add drag and drop events to topic header
+            topicHeader.addEventListener('dragover', function(e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              this.classList.add('drag-over');
+              showDragIndicator(e, `Move to ${topicName}`);
+            });
+
+            topicHeader.addEventListener('dragleave', function(e) {
+              this.classList.remove('drag-over');
+              hideDragIndicator();
+            });
+
+            topicHeader.addEventListener('drop', function(e) {
+              e.preventDefault();
+              this.classList.remove('drag-over');
+              hideDragIndicator();
+
+              if (draggedTask) {
+                const success = moveTaskToTopic(draggedTask, this.dataset.topicId);
+                if (!success) {
+                  alert('Cannot move completed tasks to regular topics or incomplete tasks to completed.');
+                }
+                draggedTask = null;
+              }
+            });
+
+            // Create topic content container
+            const topicContent = document.createElement('div');
+            topicContent.className = 'topic-content';
+            topicContent.dataset.topicId = topicId;
+
+            // Add tasks to topic content
+            tasksByTopic[topicId].forEach(task => {
+              const taskCard = createTaskCard(task);
+              topicContent.appendChild(taskCard);
+            });
+
+            // Add to container
+            tasksContainer.appendChild(topicHeader);
+            tasksContainer.appendChild(topicContent);
+
+            // Add collapse functionality
+            const collapseBtn = topicHeader.querySelector('.collapse-btn');
+            collapseBtn.addEventListener('click', function() {
+              topicContent.classList.toggle('collapsed');
+              this.textContent = topicContent.classList.contains('collapsed') ? '▶' : '▼';
+            });
           });
-
-          // Add to container
-          tasksContainer.appendChild(topicHeader);
-          tasksContainer.appendChild(topicContent);
-
-          // Add collapse functionality
-          const collapseBtn = topicHeader.querySelector('.collapse-btn');
-          collapseBtn.addEventListener('click', function() {
-            topicContent.classList.toggle('collapsed');
-            this.textContent = topicContent.classList.contains('collapsed') ? '▶' : '▼';
-          });
-        });
+        }
       } else if (currentTopicFilter === 'completed') {
         // Show only completed tasks
         filteredTasks = tasks.filter(task => task.completed);
 
-        // Add tasks directly to container
-        filteredTasks.forEach(task => {
+        // Apply sorting and add tasks to container
+        const sortedTasks = sortTasks(filteredTasks);
+        sortedTasks.forEach(task => {
           const taskCard = createTaskCard(task);
           tasksContainer.appendChild(taskCard);
         });
@@ -817,8 +993,10 @@
         // Filter by specific topic
         filteredTasks = tasks.filter(task => task.topicId === currentTopicFilter);
 
-        // Add tasks directly to container
-        filteredTasks.forEach(task => {
+        // Apply sorting and add tasks to container (exclude completed tasks when sorting)
+        const tasksToSort = currentSortMethod !== 'none' ? filteredTasks.filter(task => !task.completed) : filteredTasks;
+        const sortedTasks = sortTasks(tasksToSort);
+        sortedTasks.forEach(task => {
           const taskCard = createTaskCard(task);
           tasksContainer.appendChild(taskCard);
         });
@@ -843,8 +1021,14 @@
       // Priority class mapping
       const priorityClass = `priority-${task.priority || 'medium'}`;
 
-      // Format due date
-      const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date';
+      // Format due date (fix timezone issue by parsing as local date)
+      let dueDate = 'No due date';
+      if (task.dueDate) {
+        // Parse the date string as local date to avoid timezone issues
+        const dateParts = task.dueDate.split('-');
+        const localDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        dueDate = localDate.toLocaleDateString();
+      }
 
       // Create the HTML structure
       card.innerHTML = `
@@ -887,10 +1071,23 @@
         this.classList.add('dragging');
         e.dataTransfer.setData('text/plain', task.id);
         e.dataTransfer.effectAllowed = 'move';
+
+        // Show initial drag indicator
+        setTimeout(() => {
+          showDragIndicator(e, 'Drag to topic to move');
+        }, 10);
       });
 
       card.addEventListener('dragend', function() {
         this.classList.remove('dragging');
+        hideDragIndicator();
+
+        // Clean up any remaining drag-over states
+        document.querySelectorAll('.drag-over').forEach(el => {
+          el.classList.remove('drag-over');
+        });
+
+        draggedTask = null;
       });
 
       return card;
@@ -1014,6 +1211,92 @@
         tasks[taskIndex].priority = newPriority;
         localStorage.setItem('todoTasks', JSON.stringify(tasks));
         loadTasks();
+      }
+    }
+
+    // Move task to different topic
+    function moveTaskToTopic(taskId, newTopicId) {
+      const tasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+      const taskIndex = tasks.findIndex(t => t.id == taskId);
+
+      if (taskIndex !== -1) {
+        // Don't allow moving completed tasks to non-completed topics
+        if (tasks[taskIndex].completed && newTopicId !== 'completed') {
+          return false;
+        }
+
+        // Don't allow moving incomplete tasks to completed topic
+        if (!tasks[taskIndex].completed && newTopicId === 'completed') {
+          return false;
+        }
+
+        // Update the task's topic
+        tasks[taskIndex].topicId = newTopicId === 'completed' ? tasks[taskIndex].topicId : newTopicId;
+
+        localStorage.setItem('todoTasks', JSON.stringify(tasks));
+        loadTopics();
+        loadTasks();
+        return true;
+      }
+      return false;
+    }
+
+    // Show drag indicator
+    function showDragIndicator(e, text) {
+      const indicator = document.getElementById('drag-indicator');
+      indicator.textContent = text;
+      indicator.style.display = 'block';
+      indicator.style.left = (e.clientX + 10) + 'px';
+      indicator.style.top = (e.clientY - 10) + 'px';
+    }
+
+    // Hide drag indicator
+    function hideDragIndicator() {
+      const indicator = document.getElementById('drag-indicator');
+      indicator.style.display = 'none';
+    }
+
+    // Sort tasks based on current sort method
+    function sortTasks(tasks) {
+      if (currentSortMethod === 'none') {
+        return tasks;
+      }
+
+      const sortedTasks = [...tasks];
+
+      switch (currentSortMethod) {
+        case 'date-asc':
+          return sortedTasks.sort((a, b) => {
+            const dateA = a.dueDate ? new Date(a.dueDate) : new Date('9999-12-31');
+            const dateB = b.dueDate ? new Date(b.dueDate) : new Date('9999-12-31');
+            return dateA - dateB;
+          });
+
+        case 'date-desc':
+          return sortedTasks.sort((a, b) => {
+            const dateA = a.dueDate ? new Date(a.dueDate) : new Date('1900-01-01');
+            const dateB = b.dueDate ? new Date(b.dueDate) : new Date('1900-01-01');
+            return dateB - dateA;
+          });
+
+        case 'priority-high':
+          return sortedTasks.sort((a, b) => {
+            const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+            const priorityA = priorityOrder[a.priority || 'medium'];
+            const priorityB = priorityOrder[b.priority || 'medium'];
+            return priorityB - priorityA;
+          });
+
+        case 'priority-low':
+          return sortedTasks.sort((a, b) => {
+            const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+            const priorityA = priorityOrder[a.priority || 'medium'];
+            const priorityB = priorityOrder[b.priority || 'medium'];
+            return priorityA - priorityB;
+          });
+
+        default:
+          return sortedTasks;
       }
     }
 
@@ -1185,6 +1468,12 @@
       // Add task button
       document.getElementById('add-task-btn').addEventListener('click', function() {
         document.getElementById('task-form-container').style.display = 'block';
+
+        // Default to current topic if one is selected (but not 'all' or 'completed')
+        const topicSelect = document.getElementById('task-topic');
+        if (currentTopicFilter && currentTopicFilter !== 'all' && currentTopicFilter !== 'completed') {
+          topicSelect.value = currentTopicFilter;
+        }
       });
 
       // New topic button
@@ -1202,6 +1491,13 @@
       // Toggle sidebar button
       document.getElementById('toggle-sidebar').addEventListener('click', toggleSidebar);
 
+      // Sort dropdown
+      document.getElementById('sort-by').addEventListener('change', function() {
+        currentSortMethod = this.value;
+        localStorage.setItem('todoSortMethod', currentSortMethod);
+        loadTasks();
+      });
+
       // Dark mode toggle
       const toggleButton = document.getElementById('theme-toggle');
       toggleButton.addEventListener('change', function() {
@@ -1213,6 +1509,13 @@
       if (localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');
         toggleButton.checked = true;
+      }
+
+      // Apply saved sort method preference
+      const savedSortMethod = localStorage.getItem('todoSortMethod');
+      if (savedSortMethod) {
+        currentSortMethod = savedSortMethod;
+        document.getElementById('sort-by').value = savedSortMethod;
       }
 
       // Handle clicks on the document to hide context menu
